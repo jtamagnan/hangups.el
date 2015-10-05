@@ -60,9 +60,11 @@ output-buffer))
     map)
   "Keymap for `hangups-list-mode' major mode.")
 
-(defvar hangups-mode-map
+(defvar hangups-conv-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map "\C-j" 'newline-and-indent)
+    (define-key map (kbd "p") 'previous-line)
+    (define-key map (kbd "n") 'next-line)
+    (define-key map (kbd "g") 'hangups-conv-refresh)
     map)
   "Keymap for `hangups-conv-mode' major mode.")
 
@@ -93,10 +95,12 @@ output-buffer))
 (defun hangups-conversation-helper (string)
   "Puts STRING in a new buffer."
   (deactivate-mark)
+  (make-local-variable 'hangups-name)
+  (make-local-variable 'hangups-number)
   (switch-to-buffer-other-window
    (get-buffer-create hangups-conv-buffer-name))
   (insert string)
-  (hangups-mode))
+  (hangups-conv-mode))
 
 (defun hangups ()
   "View all conversations."
@@ -107,12 +111,21 @@ output-buffer))
   "View *number* messages from *name*  conversation.
 NAME: user
 NUMBER: number of messages"
-  (jat/async-shell-command-to-string (concat "hangups_cli get -c " name " -n " (number-to-string number)) `hangups-conversation-helper))
+  (jat/async-shell-command-to-string
+   (concat "hangups_cli get -c " name " -n " (number-to-string number))
+   'hangups-conversation-helper))
 
 (defun hangups-open-conversation ()
   "Open conversation at point."
   (interactive "")
   (hangups-conversation (jat/chomp (thing-at-point 'line)) hangups-messages))
+
+(defun hangups-conv-refresh ()
+  "Refresh conversation"
+  (interactive "")
+  (let ((inhibit-read-only t))
+    (erase-buffer)
+    (hangups-conversation hangups-name hangups-number)))
 
 (provide 'hangups)
 ;;; hangups.el ends here
