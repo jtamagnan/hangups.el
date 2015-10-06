@@ -19,7 +19,8 @@ only installable through source.
 Then you must include the package in your init file, an example of
 which is shown below.
 
-::
+.. code-block:: lisp
+
    (add-to-list 'load-path "~/path/to/hangups.el/")
    (require 'hangups)
 
