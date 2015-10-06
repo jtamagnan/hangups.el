@@ -6,7 +6,7 @@ Hangups.el is a hangouts interface for emacs.
 
 It uses the `hangups library <https://github.com/tdryer/hangups>`_ and
 the `hangups_cli library <https://github.com/jtamagnan/hangups_cli>`_
-to send and recieve messages.
+to send and recieve hangouts messages and google voice sms messages.
 
 Installation
 ------------
