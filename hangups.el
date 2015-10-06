@@ -8,21 +8,20 @@
 ;;; Potentially useful code:
 (require 'cl)
 
-(defun jat/async-shell-command-to-string (command callback)
+(defun jat/async-shell-command-to-string (command callback &rest args)
   "Execute shell command COMMAND asynchronously in the background.
 
 Return the temporary output buffer which command is writing to
 during execution.
 
 When the command is finished, call CALLBACK with the resulting
-output as a string."
+output as a string and extra argment ARGS."
   (lexical-let
       ((output-buffer (generate-new-buffer " *temp*"))
-       (callback-fun callback))
+       (callback-fun callback)
+       (margs args))
     (set-process-sentinel
-
-(start-process "Shell" output-buffer shell-file-name shell-command-switch command)
-
+     (start-process "Shell" output-buffer shell-file-name shell-command-switch command)
      (lambda (process signal)
        (when (memq (process-status process) '(exit signal))
          (with-current-buffer output-buffer
@@ -30,7 +29,7 @@ output as a string."
                   (buffer-substring-no-properties
                    (point-min)
                    (point-max))))
-             (funcall callback-fun output-string)))
+             (apply callback-fun (cons output-string margs))))
          (kill-buffer output-buffer))))
 output-buffer))
 
@@ -57,6 +56,7 @@ output-buffer))
     (define-key map (kbd "RET") 'hangups-open-conversation)
     (define-key map (kbd "p") 'previous-line)
     (define-key map (kbd "n") 'next-line)
+    (define-key map (kbd "g") 'hangups-list-refresh)
     map)
   "Keymap for `hangups-list-mode' major mode.")
 
@@ -65,6 +65,7 @@ output-buffer))
     (define-key map (kbd "p") 'previous-line)
     (define-key map (kbd "n") 'next-line)
     (define-key map (kbd "g") 'hangups-conv-refresh)
+    (define-key map (kbd "r") 'hangups-send-to-conv)
     map)
   "Keymap for `hangups-conv-mode' major mode.")
 
@@ -84,28 +85,39 @@ output-buffer))
   :abbrev-table nil
   (setq truncate-lines t))
 
-(defun hangups-conversations-helper (string)
+(defun hangups-list-helper (string)
   "View all converations (STRING)."
   (deactivate-mark)
-  (switch-to-buffer-other-window
+  (switch-to-buffer
    (get-buffer-create hangups-list-buffer-name))
-  (insert string)
+  (let ((inhibit-read-only t))
+    (erase-buffer)
+    (insert string))
+  (goto-char (point-min))
   (hangups-list-mode))
 
-(defun hangups-conversation-helper (string)
-  "Puts STRING in a new buffer."
+(defvar hangups-name)
+(defvar hangups-number)
+
+(defun hangups-conv-helper (string name number)
+  "Puts STRING in a new buffer.
+
+Title is affected by NAME, NUMBER is saved"
   (deactivate-mark)
-  (make-local-variable 'hangups-name)
-  (make-local-variable 'hangups-number)
-  (switch-to-buffer-other-window
-   (get-buffer-create hangups-conv-buffer-name))
-  (insert string)
-  (hangups-conv-mode))
+  (switch-to-buffer
+   (get-buffer-create (concat hangups-conv-buffer-name " - " name)))
+  (message (buffer-name))
+  (let ((inhibit-read-only t))
+    (erase-buffer)
+    (insert string))
+  (hangups-conv-mode)
+  (setq-local hangups-name name)
+  (setq-local hangups-number number))
 
 (defun hangups ()
   "View all conversations."
   (interactive "")
-  (jat/async-shell-command-to-string "hangups_cli" 'hangups-conversations-helper))
+  (jat/async-shell-command-to-string "hangups_cli" 'hangups-list-helper))
 
 (defun hangups-conversation (name number)
   "View *number* messages from *name*  conversation.
@@ -113,7 +125,7 @@ NAME: user
 NUMBER: number of messages"
   (jat/async-shell-command-to-string
    (concat "hangups_cli get -c " name " -n " (number-to-string number))
-   'hangups-conversation-helper))
+   'hangups-conv-helper name number))
 
 (defun hangups-open-conversation ()
   "Open conversation at point."
@@ -121,11 +133,28 @@ NUMBER: number of messages"
   (hangups-conversation (jat/chomp (thing-at-point 'line)) hangups-messages))
 
 (defun hangups-conv-refresh ()
-  "Refresh conversation"
+  "Refresh conversation."
   (interactive "")
-  (let ((inhibit-read-only t))
-    (erase-buffer)
-    (hangups-conversation hangups-name hangups-number)))
+  (hangups-conversation hangups-name hangups-number))
+
+(defun hangups-list-refresh ()
+  "Refresh list of conversations."
+  (interactive "")
+  (hangups))
+
+(defun message-sent (string)
+  "Show that message was sent.
+
+Success is based off of STRING contents"
+  (message "Message sent succesfully"))
+
+(defun hangups-send-to-conv ()
+"Send a message to current conversation."
+(interactive "")
+(let ((string (read-from-minibuffer "Message: ")))
+  (jat/async-shell-command-to-string
+   (concat "hangups_cli send -c " hangups-name " -m \"" string "\"")
+   'message-sent)))
 
 (provide 'hangups)
 ;;; hangups.el ends here
