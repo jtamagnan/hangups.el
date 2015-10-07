@@ -1,7 +1,37 @@
-;;; package --- Summary
+;;; hangups.el --- Chat using google voice and google hangouts
 
+;; Copyright (C) 2015 Jules Tamagnan
+;; Author: Jules Tamagnan <jtamagnan@gmail.com>
+;; Maintainer: Jules Tamagnan <jtamagnan@gmail.com>
+;; Created: 8 Oct 2015
+;; Version: 0.1
+
+;; Keywords: Chat, sms, hangouts, voice
+;; Homepage: http://www.github.com/jtamagnan/hangups.el
+
+;; This file is not a part of GNU Emacs.
+
+;; This file is free software (GPLv3 License)
 
 ;;; Commentary:
+
+;; This package allows the user (YOU!) to communicate to his/her
+;; google contacts through google hangouts and google voice (if he/she
+;; has a google voice phone number). It is very much a work in
+;; progress but is being constantly updated.
+
+;;; Usage
+
+;; First you must install hangups_cli
+;; <http://www.github.com/jtamagnan/hangups_cli>.
+
+;; After installation call hangups_cli once from terminal to make sure
+;; that it works and to register your computer with google.
+
+;; Add this file to your load path :(add-to-list 'load-path "~/Path/To/hangups.el/")
+;; Require the file                :(require 'hangups)
+;; Call hangups!                   : M-x hangups
+;; Enjoy!
 
 ;;; Code:
 
