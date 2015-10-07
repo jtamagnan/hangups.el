@@ -85,62 +85,79 @@ output-buffer))
   :abbrev-table nil
   (setq truncate-lines t))
 
-(defun hangups-list-helper (string)
-  "View all converations (STRING)."
+(defun hangups-list-helper (string switch-buffer)
+  "View all converations (STRING).
+
+SWITCH-BUFFER toggles whether to switch or set buffer"
   (deactivate-mark)
-  (switch-to-buffer
-   (get-buffer-create hangups-list-buffer-name))
-  (let ((inhibit-read-only t))
-    (erase-buffer)
-    (insert string))
-  (goto-char (point-min))
-  (hangups-list-mode))
+  (save-current-buffer
+    (funcall (if switch-buffer 'switch-to-buffer 'set-buffer)
+     (get-buffer-create hangups-list-buffer-name))
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (insert string))
+    (goto-char (point-min))
+    (hangups-list-mode)))
 
 (defvar hangups-name)
 (defvar hangups-number)
 
-(defun hangups-conv-helper (string name number)
+(defun hangups-conv-helper (string name number switch-buffer)
   "Puts STRING in a new buffer.
 
-Title is affected by NAME, NUMBER is saved"
+Title is affected by NAME, NUMBER is saved
+SWITCH-BUFFER toggles whether to switch or set the buffer"
   (deactivate-mark)
-  (switch-to-buffer
-   (get-buffer-create (concat hangups-conv-buffer-name " - " name)))
-  (message (buffer-name))
-  (let ((inhibit-read-only t))
-    (erase-buffer)
-    (insert string))
-  (hangups-conv-mode)
-  (setq-local hangups-name name)
-  (setq-local hangups-number number))
+  (save-current-buffer
+    (funcall (if switch-buffer 'switch-to-buffer 'set-buffer)
+     (get-buffer-create (concat hangups-conv-buffer-name " - " name)))
+    (message (buffer-name))
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (insert string))
+    (hangups-conv-mode)
+    (setq-local hangups-name name)
+    (setq-local hangups-number number)))
 
 (defun hangups ()
   "View all conversations."
   (interactive "")
-  (jat/async-shell-command-to-string "hangups_cli" 'hangups-list-helper))
+  (message "Opening hangups")
+  (hangups-list t))
 
-(defun hangups-conversation (name number)
+(defun hangups-list (switch-buffer)
+  "Go to hangups-list.
+
+SWITCH-BUFFER whether to switch to the buffer o rnot"
+  (jat/async-shell-command-to-string "hangups_cli" 'hangups-list-helper switch-buffer))
+
+(defun hangups-conversation (name number switch-buffer)
   "View *number* messages from *name*  conversation.
 NAME: user
-NUMBER: number of messages"
+NUMBER: number of messages
+
+SWITCH-BUFFER whether to switch to this buffer or just run it"
   (jat/async-shell-command-to-string
    (concat "hangups_cli get -c " name " -n " (number-to-string number))
-   'hangups-conv-helper name number))
+   'hangups-conv-helper name number switch-buffer))
 
 (defun hangups-open-conversation ()
   "Open conversation at point."
   (interactive "")
-  (hangups-conversation (jat/chomp (thing-at-point 'line)) hangups-messages))
+  (message "Opening conversation")
+  (hangups-conversation (jat/chomp (thing-at-point 'line)) hangups-messages t))
 
 (defun hangups-conv-refresh ()
   "Refresh conversation."
   (interactive "")
-  (hangups-conversation hangups-name hangups-number))
+  (message "Refreshing conversation")
+  (hangups-conversation hangups-name hangups-number nil))
 
 (defun hangups-list-refresh ()
   "Refresh list of conversations."
   (interactive "")
-  (hangups))
+  (message "Refreshing hangups-list")
+  (hangups-list nil))
 
 (defun message-sent (string)
   "Show that message was sent.
@@ -152,6 +169,7 @@ Success is based off of STRING contents"
 "Send a message to current conversation."
 (interactive "")
 (let ((string (read-from-minibuffer "Message: ")))
+  (message "Sending message")
   (jat/async-shell-command-to-string
    (concat "hangups_cli send -c " hangups-name " -m \"" string "\"")
    'message-sent)))
