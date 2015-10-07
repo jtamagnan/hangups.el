@@ -74,9 +74,14 @@ output-buffer))
                                 ""
                                 str))
 
+(defun jat/split-string-line (str delim)
+  (mapcar (lambda (line)
+	    (split-string line delim))
+	  (split-string str "\n")))
+
 ;;; My code:
 
-;; * constants
+;; * External variables and constants
 
 (defconst hangups-list-buffer-name "hangups - all conversations")
 (defconst hangups-conv-buffer-name "hangups - conversation")
@@ -85,6 +90,7 @@ output-buffer))
 (defconst hangups-messages 50)
 
 (defvar hangups-mode-hook nil)
+(defvar number-unread)
 
 ;; * keymaps
 
@@ -135,10 +141,18 @@ SWITCH-BUFFER toggles whether to switch or set buffer"
   (deactivate-mark)
   (save-current-buffer
     (funcall (if switch-buffer 'switch-to-buffer 'set-buffer)
-     (get-buffer-create hangups-list-buffer-name))
-    (let ((inhibit-read-only t))
-      (erase-buffer)
-      (insert string))
+	     (get-buffer-create hangups-list-buffer-name))
+    (let* ((string-list (jat/split-string-line string "|"))
+	   (numbers (mapcar (lambda (str) (string-to-number (jat/chomp (car str)))) string-list))
+	   (strings (mapcar 'cadr string-list)))
+      (let ((inhibit-read-only t))
+	(erase-buffer)
+	(setq number-unread (apply '+ numbers))
+	(insert (apply 'concat (loop for num in numbers
+				     for str in strings
+				     collect (if (> num 0)
+						 (propertize (concat str "\n") 'face 'bold-italic)
+					       (concat str "\n")))))))
     (goto-char (point-min))
     (hangups-list-mode)))
 
@@ -214,11 +228,14 @@ SWITCH-BUFFER whether to switch to this buffer or just run it"
 
 ;; * send message
 
-(defun message-sent (string)
+(defun message-sent (string name number)
   "Show that message was sent.
 
-Success is based off of STRING contents"
-  (message "Message sent succesfully"))
+STRING is the messages in the conversation
+NAME is the conversation name
+NUMBER is the number of messages to reload"
+  (message "Message sent succesfully")
+  (hangups-conv-helper string name number nil))
 
 (defun hangups-send-to-conv ()
 "Send a message to current conversation."
@@ -227,7 +244,7 @@ Success is based off of STRING contents"
   (message "Sending message")
   (jat/async-shell-command-to-string
    (concat "hangups_cli send -c " hangups-name " -m \"" string "\"")
-   'message-sent)))
+   'message-sent hangups-name hangups-number)))
 
 
 ;; * provide statement
