@@ -5,6 +5,7 @@
 ;; Maintainer: Jules Tamagnan <jtamagnan@gmail.com>
 ;; Created: 8 Oct 2015
 ;; Version: 0.1
+;; Package-Requires: ((adaptive-wrap "0.5"))
 
 ;; Keywords: Chat, sms, hangouts, voice
 ;; Homepage: http://www.github.com/jtamagnan/hangups.el
@@ -38,6 +39,8 @@
 ;; * Side functions:
 
 (require 'cl)
+(require 'adaptive-wrap)
+
 
 (defun jat/async-shell-command-to-string (command callback &rest args)
   "Execute shell command COMMAND asynchronously in the background.
@@ -111,7 +114,7 @@ output-buffer))
 \\{hangups-list-mode-map}"
   :syntax-table nil
   :abbrev-table nil
-  (setq truncate-lines t))
+  (toggle-truncate-lines 1))
 
 (define-derived-mode hangups-conv-mode special-mode "hangups-conv"
   "Major mode for viewing conversations from hangouts
@@ -119,7 +122,9 @@ output-buffer))
 \\{hangups-conv-mode-map}"
   :syntax-table nil
   :abbrev-table nil
-  (setq truncate-lines t))
+  (adaptive-wrap-prefix-mode)
+  (setq adaptive-wrap-extra-indent 42)
+  (toggle-word-wrap 1))
 
 ;; * buffer handling functions
 
@@ -148,7 +153,7 @@ SWITCH-BUFFER toggles whether to switch or set the buffer"
   (deactivate-mark)
   (save-current-buffer
     (funcall (if switch-buffer 'switch-to-buffer 'set-buffer)
-     (get-buffer-create (concat hangups-conv-buffer-name " - " name)))
+	     (get-buffer-create (concat hangups-conv-buffer-name " - " name)))
     (message (buffer-name))
     (let ((inhibit-read-only t))
       (erase-buffer)
