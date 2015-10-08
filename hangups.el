@@ -5,7 +5,7 @@
 ;; Maintainer: Jules Tamagnan <jtamagnan@gmail.com>
 ;; Created: 8 Oct 2015
 ;; Version: 0.1
-;; Package-Requires: ((adaptive-wrap "0.5") (python-environment "0.0.2"))
+;; Package-Requires: ((adaptive-wrap "0.5"))
 
 ;; Keywords: Chat, sms, hangouts, voice
 ;; Homepage: http://www.github.com/jtamagnan/hangups.el
@@ -40,7 +40,7 @@
 
 (require 'cl)
 (require 'adaptive-wrap)
-(require 'python-environment)
+
 
 (defun jat/async-shell-command-to-string (command callback &rest args)
   "Execute shell command COMMAND asynchronously in the background.
@@ -83,6 +83,8 @@ output-buffer))
 (defun hangups/buffer-name (name)
   "Create the conversation NAME."
   (concat hangups-conv-buffer-name " - " name))
+
+;;; My code:
 
 ;; * External variables and constants
 
@@ -253,103 +255,6 @@ NUMBER is the number of messages to reload"
    (concat "hangups_cli send -c " hangups-name " -m \"" string "\"")
    'message-sent hangups-name hangups-number)))
 
-
-;; * hangups_cli install
-
-(defcustom hangups/environment-root nil
-  "Name of Python environment to use.
-If it is nil, `python-environment-default-root-name' is used.
-
-You can specify a full path instead of a name (relative path).
-In that case, `python-environment-directory' is ignored and
-Python virtual environment is created at the specified path."
-  :group 'hangups)
-
-(defun hangups/-env-server-command ()
-  ""
-  (let* ((getbin (lambda (x) (python-environment-bin x hangups/environment-root)))
-         (script (or (funcall getbin "jediepcserver")
-                     (funcall getbin "jediepcserver.py"))))
-    (when script
-      (list script))))
-
-(defcustom hangups/server-command
-  (or (hangups/-env-server-command)
-      (list "python" hangups/server-script))
-  "Command used to run Jedi server.
-
-.. NOTE::
-
-   If you used `jedi:install-server' (recommended) to install
-   Python server jediepcserver.py, you don't need to mess around
-   with jediepcserver.py.  Jedi.el handles everything
-   automatically.
-
-If you install Python server jediepcserver.py using
-`jedi:install-server' command, `jedi:server-command' should be
-automatically set to::
-
-    '(\"~/.emacs.d/.python-environments/default/bin/jediepcserver.py\")
-
-Otherwise, it is set to::
-
-    '(\"python\" \"JEDI:SOURCE-DIR/jediepcserver.py\")
-
-.. NOTE:: If you installed jediepcserver.py manually, then you
-   have to set `jedi:server-command' appropriately.
-
-   If you can run ``jediepcserver.py --help`` in your shell, then
-   you can simply set::
-
-       (setq jedi:server-command '(\"jediepcserver.py\"))
-
-   Otherwise, you need to find where you installed
-   jediepcserver.py then set the path directly::
-
-       (setq jedi:server-command '(\"PATH/TO/jediepcserver.py\"))
-
-If you want to use a specific version of Python, setup
-`jedi:environment-virtualenv' variable appropriately and
-reinstall jediepcserver.py.
-
-If you want to pass some arguments to the Jedi server command,
-use `jedi:server-args' instead of appending them
-`jedi:server-command'."
-  :group 'hangups)
-
-(defcustom hangups/environment-root nil
-  "Name of Python environment to use.
-If it is nil, `python-environment-default-root-name' is used.
-
-You can specify a full path instead of a name (relative path).
-In that case, `python-environment-directory' is ignored and
-Python virtual environment is created at the specified path."
-  :group 'hangups)
-
-(defcustom hangups/environment-virtualenv nil
-  "``virtualenv`` command to use.  A list of string.
-If it is nil, `python-environment-virtualenv' is used instead.
-
-You must set non-nil value to `jedi:environment-root' in order
-to make this setting work."
-  :group 'hangups)
-
-(defvar hangups/source-dir (if load-file-name
-                            (file-name-directory load-file-name)
-                          default-directory))
-
-(defvar hangups/install-server--command
-  `("pip" "install" "--upgrade" ,(convert-standard-filename hangups/source-dir)))
-
-;;;###autoload
-(defun hangups/hangups_cli-install ()
-  "Install hangups_cli to be used."
-  (interactive)
-  (prog1
-      (python-environment-run-block hangups/install-server--command
-                                    hangups/environment-root
-                                    hangups/environment-virtualenv)
-    (setq-default hangups/server-command (hangups/-env-server-command))))
 
 ;; * provide statement
 (provide 'hangups)
