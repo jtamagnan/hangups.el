@@ -1,0 +1,3 @@
+[submodule "hangups_cli"]
+	path = hangups_cli
+	url = git@github.com:jtamagnan/hangups_cli.git
