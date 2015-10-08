@@ -190,6 +190,7 @@ SWITCH-BUFFER toggles whether to switch or set the buffer"
 (defun hangups ()
   "View all conversations."
   (interactive "")
+  (run-hooks 'hangups-mode-hook)
   (switch-to-buffer (get-buffer-create hangups-list-buffer-name))
   (hangups-list-mode)
   (message "Opening hangups")
