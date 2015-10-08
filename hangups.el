@@ -75,9 +75,14 @@ output-buffer))
                                 str))
 
 (defun jat/split-string-line (str delim)
+  "Splits a STR into lines and then into sections broken at DELIM."
   (mapcar (lambda (line)
 	    (split-string line delim))
 	  (split-string str "\n")))
+
+(defun hangups/buffer-name (name)
+  "Create the conversation NAME."
+  (concat hangups-conv-buffer-name " - " name))
 
 ;;; My code:
 
@@ -90,7 +95,7 @@ output-buffer))
 (defconst hangups-messages 50)
 
 (defvar hangups-mode-hook nil)
-(defvar number-unread)
+(defvar hangups/convs-unread)
 
 ;; * keymaps
 
@@ -134,45 +139,47 @@ output-buffer))
 
 ;; * buffer handling functions
 
-(defun hangups-list-helper (string switch-buffer)
-  "View all converations (STRING).
+(defun hangups/clean-string-count-unread (string)
+  "Strip STRING of unread messages count,
+propertize unread conversation
+Count unread messages -> hangups/convs-unread"
+  (let* ((string-list (jat/split-string-line string "|"))
+	 (numbers (mapcar (lambda (str) (string-to-number (jat/chomp (car str)))) string-list))
+	 (strings (mapcar 'cadr string-list)))
+    (setq hangups/convs-unread (apply '+ numbers))
+    (apply 'concat (loop for num in numbers
+				   for str in strings
+				   collect (if (> num 0)
+					       (propertize (concat str "\n") 'face 'bold-italic)
+					     (concat str "\n"))))))
 
-SWITCH-BUFFER toggles whether to switch or set buffer"
+(defun hangups-list-helper (string)
+  "View all converations (STRING)."
   (deactivate-mark)
   (save-current-buffer
-    (funcall (if switch-buffer 'switch-to-buffer 'set-buffer)
-	     (get-buffer-create hangups-list-buffer-name))
-    (let* ((string-list (jat/split-string-line string "|"))
-	   (numbers (mapcar (lambda (str) (string-to-number (jat/chomp (car str)))) string-list))
-	   (strings (mapcar 'cadr string-list)))
-      (let ((inhibit-read-only t))
-	(erase-buffer)
-	(setq number-unread (apply '+ numbers))
-	(insert (apply 'concat (loop for num in numbers
-				     for str in strings
-				     collect (if (> num 0)
-						 (propertize (concat str "\n") 'face 'bold-italic)
-					       (concat str "\n")))))))
-    (goto-char (point-min))
-    (hangups-list-mode)))
+    (set-buffer
+     (get-buffer-create hangups-list-buffer-name))
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (insert (hangups/clean-string-count-unread string)))
+    (goto-char (point-min))))
 
 (defvar hangups-name)
 (defvar hangups-number)
 
-(defun hangups-conv-helper (string name number switch-buffer)
+(defun hangups-conv-helper (string name number)
   "Puts STRING in a new buffer.
 
 Title is affected by NAME, NUMBER is saved
 SWITCH-BUFFER toggles whether to switch or set the buffer"
   (deactivate-mark)
   (save-current-buffer
-    (funcall (if switch-buffer 'switch-to-buffer 'set-buffer)
-	     (get-buffer-create (concat hangups-conv-buffer-name " - " name)))
+    (set-buffer
+     (get-buffer-create (hangups/buffer-name name)))
     (message (buffer-name))
     (let ((inhibit-read-only t))
       (erase-buffer)
       (insert string))
-    (hangups-conv-mode)
     (setq-local hangups-name name)
     (setq-local hangups-number number)))
 
@@ -183,34 +190,35 @@ SWITCH-BUFFER toggles whether to switch or set the buffer"
 (defun hangups ()
   "View all conversations."
   (interactive "")
+  (switch-to-buffer (get-buffer-create hangups-list-buffer-name))
+  (hangups-list-mode)
   (message "Opening hangups")
-  (hangups-list t))
+  (hangups-list))
 
 ;; ** open conversation helper function
 
-(defun hangups-list (switch-buffer)
-  "Go to hangups-list.
-
-SWITCH-BUFFER whether to switch to the buffer o rnot"
-  (jat/async-shell-command-to-string "hangups_cli" 'hangups-list-helper switch-buffer))
+(defun hangups-list ()
+  "Go to hangups-list."
+  (jat/async-shell-command-to-string "hangups_cli" 'hangups-list-helper))
 
 ;; * Open conversation
 
-(defun hangups-conversation (name number switch-buffer)
+(defun hangups-conversation (name number)
   "View *number* messages from *name*  conversation.
 NAME: user
-NUMBER: number of messages
-
-SWITCH-BUFFER whether to switch to this buffer or just run it"
+NUMBER: number of messages"
   (jat/async-shell-command-to-string
    (concat "hangups_cli get -c " name " -n " (number-to-string number))
-   'hangups-conv-helper name number switch-buffer))
+   'hangups-conv-helper name number))
 
 (defun hangups-open-conversation ()
   "Open conversation at point."
   (interactive "")
-  (message "Opening conversation")
-  (hangups-conversation (jat/chomp (thing-at-point 'line)) hangups-messages t))
+  (let ((name (jat/chomp (thing-at-point 'line))))
+    (switch-to-buffer (get-buffer-create (hangups/buffer-name name)))
+    (hangups-conv-mode)
+    (message "Opening conversation")
+    (hangups-conversation name hangups-messages)))
 
 ;; * refresh functions
 
@@ -218,13 +226,13 @@ SWITCH-BUFFER whether to switch to this buffer or just run it"
   "Refresh conversation."
   (interactive "")
   (message "Refreshing conversation")
-  (hangups-conversation hangups-name hangups-number nil))
+  (hangups-conversation hangups-name hangups-number))
 
 (defun hangups-list-refresh ()
   "Refresh list of conversations."
   (interactive "")
   (message "Refreshing hangups-list")
-  (hangups-list nil))
+  (hangups-list))
 
 ;; * send message
 
@@ -235,7 +243,7 @@ STRING is the messages in the conversation
 NAME is the conversation name
 NUMBER is the number of messages to reload"
   (message "Message sent succesfully")
-  (hangups-conv-helper string name number nil))
+  (hangups-conv-helper string name number))
 
 (defun hangups-send-to-conv ()
 "Send a message to current conversation."
